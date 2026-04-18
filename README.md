@@ -24,11 +24,13 @@ Notes:
 - Inference applies schema validation and canonicalization to reduce malformed outputs.
 - Data combines synthetic templates and curated adversarial/manual examples for all grading slices.
 - Quantization prioritizes a stable gate-safe path (`q4_k_m`) with a fallback (`q4_0`).
+ - Quantization cell is optimized for speed on fresh runs: `q4_0` first, then `q4_k_m` fallback.
 
 ## Model Choice
 
 - Base model: Qwen2.5-0.5B-Instruct
 - Quantization: q4_k_m primary, q4_0 fallback
+ - Quantization: q4_0 primary (fast), q4_k_m fallback
 - Inference runtime target: Colab CPU with GGUF
 
 ## What Worked
