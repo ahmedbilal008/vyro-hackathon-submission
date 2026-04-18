@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+models/*
+!models/adapter/
+!models/adapter/**
+models/merged/
+models/quantized/
+llama.cpp/
+submission_artifacts.zip
+data/train.jsonl
