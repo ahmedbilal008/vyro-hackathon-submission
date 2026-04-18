@@ -15,7 +15,24 @@ Notes:
 
 - The notebook already handles setup, data generation, training, quantization, public eval, and demo launch.
 - If quantization is slow, keep the cell running unless it shows no new logs for a long time.
-- The final notebook cell launches Gradio with public sharing enabled and prints a temporary demo URL (`*.gradio.live`) you can share with judges.
+- The final notebook cell launches Gradio with public sharing enabled and prints a temporary demo URL that can be shared with judges.
+
+## How Grader Runs
+
+Grader path is expected to be:
+
+1. Clone repository.
+2. Load adapter on declared base model (<=2B).
+3. Quantize model.
+4. Call [inference.py](inference.py) on evaluation prompts.
+5. Launch demo app.
+
+The grading entrypoint is [inference.py](inference.py).
+
+- Required function signature: run(prompt: str, history: list[dict]) -> str
+- Tool-call return format: <tool_call>{...}</tool_call>
+- Refusal return format: plain text only (no tool_call wrapper)
+- [inference.py](inference.py) is offline-only and should not use network imports.
 
 ## Design Choices
 
@@ -23,14 +40,12 @@ Notes:
 - Output is constrained to exact `<tool_call>{...}</tool_call>` or plain refusal text.
 - Inference applies schema validation and canonicalization to reduce malformed outputs.
 - Data combines synthetic templates and curated adversarial/manual examples for all grading slices.
-- Quantization prioritizes a stable gate-safe path (`q4_k_m`) with a fallback (`q4_0`).
- - Quantization cell is optimized for speed on fresh runs: `q4_0` first, then `q4_k_m` fallback.
+- Quantization cell is optimized for speed on fresh runs: q4_0 first, then q4_k_m fallback.
 
 ## Model Choice
 
 - Base model: Qwen2.5-0.5B-Instruct
-- Quantization: q4_k_m primary, q4_0 fallback
- - Quantization: q4_0 primary (fast), q4_k_m fallback
+- Quantization: q4_0 primary (fast), q4_k_m fallback
 - Inference runtime target: Colab CPU with GGUF
 
 ## What Worked
