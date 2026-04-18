@@ -1,117 +1,42 @@
 # Pocket-Agent Submission
 
-This repository is prepared for the hackathon grading flow on clean Colab T4:
-clone repo -> load adapter on base -> quantize -> score -> demo launch.
+## Quick Run
 
-## Setup Instructions (Colab-First)
+Use [colab.ipynb](colab.ipynb) as the single entry point.
 
-Run in this exact order in Colab:
+1. Open [colab.ipynb](colab.ipynb) in Colab.
+2. Run all cells top to bottom.
+3. Wait for the notebook readiness checks to print PASS.
+4. Submit this repository link on the platform:
 
-```python
-!git clone https://github.com/ahmedbilal008/vyro-hackathon-submission.git
-%cd vyro-hackathon-submission
-!pip -q install --upgrade pip setuptools wheel
-!pip -q install --prefer-binary -r requirements.txt
+https://github.com/ahmedbilal008/vyro-hackathon-submission
 
-!python starter/build_starter_files.py --manual data/manual_examples.jsonl --out starter
+Notes:
 
-!python data/generate_data.py --out data/train.jsonl --n 2000 --manual data/manual_examples.jsonl
-!python train.py --model_id Qwen/Qwen2.5-0.5B-Instruct --data data/train.jsonl --out models/adapter
+- The notebook already handles setup, data generation, training, quantization, public eval, and demo launch.
+- If quantization is slow, keep the cell running unless it shows no new logs for a long time.
 
-# Fast gate-safe quantization (<=500MB)
-!python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q4_k_m
-```
+## Design Choices
 
-If install appears stuck on llama-cpp-python for more than 8-10 minutes, interrupt and run:
+- Base model is kept <=2B (Qwen2.5-0.5B-Instruct) to satisfy hard gate constraints.
+- Output is constrained to exact `<tool_call>{...}</tool_call>` or plain refusal text.
+- Inference applies schema validation and canonicalization to reduce malformed outputs.
+- Data combines synthetic templates and curated adversarial/manual examples for all grading slices.
+- Quantization prioritizes a stable gate-safe path (`q4_k_m`) with a fallback (`q4_0`).
 
-```python
-!pip -q install --upgrade pip setuptools wheel
-!pip -q install --prefer-binary "llama-cpp-python==0.2.90"
-!pip -q install --prefer-binary -r requirements.txt
-```
-
-If q4_k_m fails, use this fallback:
-
-```python
-!python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q4_0
-```
-
-Smoke test + demo:
-
-```python
-from inference import run
-print(run("weather in Lahore in C", []))
-
-!python eval_public.py --test starter/public_test.jsonl --out eval_public_summary.json
-
-import os
-os.environ["MODEL_PATH"] = "models/quantized/model.gguf"
-!python demo/app.py
-```
-
-If you want to download adapter from Colab instead of pushing from Colab git:
-
-```python
-!zip -r adapter_only.zip models/adapter
-from google.colab import files
-files.download("adapter_only.zip")
-```
-
-## Design Decisions
-
-- Base model is Qwen2.5-0.5B-Instruct to stay safely under <=2B.
-- Output is constrained to exact <tool_call>{...}</tool_call> or plain refusal.
-- Inference validates/canonicalizes tool JSON to reduce malformed output and arg errors.
-- Ambiguous no-history prompts are refused early to avoid negative scoring.
-- Data mixes synthetic and curated adversarial/manual examples for all grading slices.
-- Quantization strategy is q4_k_m first for fastest stable run, with q4_0 fallback.
-
-## Model Choices
+## Model Choice
 
 - Base model: Qwen2.5-0.5B-Instruct
 - Quantization: q4_k_m primary, q4_0 fallback
-- Runtime target: Colab CPU inference via GGUF + llama.cpp backend
+- Inference runtime target: Colab CPU with GGUF
 
 ## What Worked
 
-- Curated adversarial examples improved Slice C behavior (typos/code-switch/ambiguity).
-- Canonical tool JSON reduced malformed outputs.
-- Refusal guard improved Slice D refusal correctness.
+- Curated adversarial prompts improved robustness on typos and code-switching.
+- Refusal guard logic improved ambiguous no-history behavior.
+- Canonical JSON formatting improved tool-call consistency.
 
 ## What Didn't
 
-- Fully random synthetic data was weak on adversarial prompts.
-- No output post-validation led to occasional malformed tool-call outputs.
-- Aggressive quantization can reduce argument fidelity.
-
-## Colab Commit Steps (After Training)
-
-Commit adapter from Colab, then push:
-
-```python
-!git config user.name "Ahmed Bilal"
-!git config user.email "your-email@example.com"
-!git add models/adapter
-!git commit -m "add trained adapter"
-
-import getpass
-token = getpass.getpass("GitHub token: ")
-!git remote set-url origin https://{token}@github.com/ahmedbilal008/vyro-hackathon-submission.git
-!git push origin main
-```
-
-Quantized file is optional to push; grader can regenerate it from adapter via quantize.py.
-
-## Starter/Eval Files Included
-
-- starter/public_test.jsonl (40 dev examples)
-- starter/teacher_examples.jsonl (20 seed examples)
-- starter/tool_schemas.json (final 5-tool schema)
-- starter/eval_harness_contract.py (local grader-style scorer)
-- eval_public.py (one-command public eval runner)
-
-## Submission
-
-Submit this public repository link:
-
-https://github.com/ahmedbilal008/vyro-hackathon-submission
+- Purely random synthetic data was weak on adversarial edge cases.
+- Over-aggressive compression can reduce argument fidelity.
