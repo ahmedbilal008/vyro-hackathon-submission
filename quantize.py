@@ -9,8 +9,26 @@ from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
-def run(cmd, cwd=None):
-    subprocess.run(cmd, cwd=cwd, check=True)
+def run(cmd, cwd=None, env=None):
+    subprocess.run(cmd, cwd=cwd, env=env, check=True)
+
+
+def build_cmake_target(build_dir, target, jobs):
+    safe_jobs = max(1, int(jobs))
+    print(f"Building {target} with {safe_jobs} job(s)")
+    run(
+        [
+            "cmake",
+            "--build",
+            build_dir,
+            "--config",
+            "Release",
+            "--target",
+            target,
+            "--parallel",
+            str(safe_jobs),
+        ]
+    )
 
 
 def find_quantize_bin(path):
@@ -26,7 +44,7 @@ def find_quantize_bin(path):
     return ""
 
 
-def ensure_llama_cpp(path):
+def ensure_llama_cpp(path, build_jobs=1):
     if not os.path.exists(path):
         run(["git", "clone", "https://github.com/ggml-org/llama.cpp", path])
 
@@ -47,10 +65,22 @@ def ensure_llama_cpp(path):
             "-DLLAMA_BUILD_EXAMPLES=OFF",
         ]
     )
-    try:
-        run(["cmake", "--build", build_dir, "--config", "Release", "--target", "llama-quantize", "-j"])
-    except subprocess.CalledProcessError:
-        run(["cmake", "--build", build_dir, "--config", "Release", "--target", "quantize", "-j"])
+
+    job_attempts = [max(1, int(build_jobs))]
+    if 1 not in job_attempts:
+        job_attempts.append(1)
+
+    for target in ("llama-quantize", "quantize"):
+        for jobs in job_attempts:
+            try:
+                build_cmake_target(build_dir, target, jobs)
+            except subprocess.CalledProcessError:
+                print(f"Build failed for target={target} jobs={jobs}")
+                continue
+
+            quantize_bin = find_quantize_bin(path)
+            if quantize_bin:
+                return quantize_bin
 
     quantize_bin = find_quantize_bin(path)
     if quantize_bin:
@@ -58,9 +88,9 @@ def ensure_llama_cpp(path):
 
     # Legacy fallback for older llama.cpp versions.
     try:
-        run(["make", "-C", path, "llama-quantize"])
+        run(["make", "-C", path, "llama-quantize", "-j1"])
     except subprocess.CalledProcessError:
-        run(["make", "-C", path, "quantize"])
+        run(["make", "-C", path, "quantize", "-j1"])
 
     quantize_bin = find_quantize_bin(path)
     if not quantize_bin:
@@ -109,13 +139,14 @@ def main():
     parser.add_argument("--out", default="models/quantized/model.gguf")
     parser.add_argument("--llama_dir", default="llama.cpp")
     parser.add_argument("--quant", default="q4_k_m")
+    parser.add_argument("--build_jobs", type=int, default=1)
     parser.add_argument("--max_mb", type=float, default=0.0)
     parser.add_argument("--reuse_merged", action="store_true")
     args = parser.parse_args()
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
 
-    quantize_bin = ensure_llama_cpp(args.llama_dir)
+    quantize_bin = ensure_llama_cpp(args.llama_dir, build_jobs=args.build_jobs)
     merged_ready = os.path.exists(os.path.join(args.merged, "config.json"))
     if args.reuse_merged and merged_ready:
         print(f"Using existing merged model at {args.merged}")
