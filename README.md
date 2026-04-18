@@ -18,8 +18,8 @@ Run in this exact order in Colab:
 !python data/generate_data.py --out data/train.jsonl --n 2000 --manual data/manual_examples.jsonl
 !python train.py --model_id Qwen/Qwen2.5-0.5B-Instruct --data data/train.jsonl --out models/adapter
 
-# Bonus-size attempt (<=250MB)
-!python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q3_k_s --max_mb 250
+# Fast gate-safe quantization (<=500MB)
+!python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q4_k_m
 ```
 
 If install appears stuck on llama-cpp-python for more than 8-10 minutes, interrupt and run:
@@ -30,10 +30,10 @@ If install appears stuck on llama-cpp-python for more than 8-10 minutes, interru
 !pip -q install --prefer-binary -r requirements.txt
 ```
 
-If bonus-size quantization fails or quality drops:
+If q4_k_m fails, use this fallback:
 
 ```python
-!python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q4_k_m
+!python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q4_0
 ```
 
 Smoke test + demo:
@@ -49,6 +49,14 @@ os.environ["MODEL_PATH"] = "models/quantized/model.gguf"
 !python demo/app.py
 ```
 
+If you want to download adapter from Colab instead of pushing from Colab git:
+
+```python
+!zip -r adapter_only.zip models/adapter
+from google.colab import files
+files.download("adapter_only.zip")
+```
+
 ## Design Decisions
 
 - Base model is Qwen2.5-0.5B-Instruct to stay safely under <=2B.
@@ -56,12 +64,12 @@ os.environ["MODEL_PATH"] = "models/quantized/model.gguf"
 - Inference validates/canonicalizes tool JSON to reduce malformed output and arg errors.
 - Ambiguous no-history prompts are refused early to avoid negative scoring.
 - Data mixes synthetic and curated adversarial/manual examples for all grading slices.
-- Quantization strategy is q3 first for <=250MB bonus, q4 fallback for safer <=500MB gate.
+- Quantization strategy is q4_k_m first for fastest stable run, with q4_0 fallback.
 
 ## Model Choices
 
 - Base model: Qwen2.5-0.5B-Instruct
-- Quantization: q3_k_s primary, q4_k_m fallback
+- Quantization: q4_k_m primary, q4_0 fallback
 - Runtime target: Colab CPU inference via GGUF + llama.cpp backend
 
 ## What Worked
