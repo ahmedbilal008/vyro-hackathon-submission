@@ -1,0 +1,20 @@
+{"id": "teacher_001", "messages": [{"role": "user", "content": "weather in Lahore in C"}], "answer": "<tool_call>{\"tool\":\"weather\",\"args\":{\"location\":\"Lahore\",\"unit\":\"C\"}}</tool_call>"}
+{"id": "teacher_002", "messages": [{"role": "user", "content": "wthr in Dubai f"}], "answer": "<tool_call>{\"tool\":\"weather\",\"args\":{\"location\":\"Dubai\",\"unit\":\"F\"}}</tool_call>"}
+{"id": "teacher_003", "messages": [{"role": "user", "content": "Karachi ka weather C me bata"}], "answer": "<tool_call>{\"tool\":\"weather\",\"args\":{\"location\":\"Karachi\",\"unit\":\"C\"}}</tool_call>"}
+{"id": "teacher_004", "messages": [{"role": "user", "content": "clima Madrid en F"}], "answer": "<tool_call>{\"tool\":\"weather\",\"args\":{\"location\":\"Madrid\",\"unit\":\"F\"}}</tool_call>"}
+{"id": "teacher_005", "messages": [{"role": "user", "content": "weather in Tokyo"}], "answer": "Please specify the unit as C or F."}
+{"id": "teacher_006", "messages": [{"role": "user", "content": "convert 25 km to mi"}], "answer": "<tool_call>{\"tool\":\"convert\",\"args\":{\"value\":25,\"from_unit\":\"km\",\"to_unit\":\"mi\"}}</tool_call>"}
+{"id": "teacher_007", "messages": [{"role": "user", "content": "pls convert 3.5 lb -> g"}], "answer": "<tool_call>{\"tool\":\"convert\",\"args\":{\"value\":3.5,\"from_unit\":\"lb\",\"to_unit\":\"g\"}}</tool_call>"}
+{"id": "teacher_008", "messages": [{"role": "user", "content": "50 usd to pkr"}], "answer": "<tool_call>{\"tool\":\"currency\",\"args\":{\"amount\":50,\"from\":\"USD\",\"to\":\"PKR\"}}</tool_call>"}
+{"id": "teacher_009", "messages": [{"role": "user", "content": "cambio 20 eur a usd"}], "answer": "<tool_call>{\"tool\":\"currency\",\"args\":{\"amount\":20,\"from\":\"EUR\",\"to\":\"USD\"}}</tool_call>"}
+{"id": "teacher_010", "messages": [{"role": "user", "content": "100 aed ko inr me badlo"}], "answer": "<tool_call>{\"tool\":\"currency\",\"args\":{\"amount\":100,\"from\":\"AED\",\"to\":\"INR\"}}</tool_call>"}
+{"id": "teacher_011", "messages": [{"role": "user", "content": "list my calendar for 2026-05-12"}], "answer": "<tool_call>{\"tool\":\"calendar\",\"args\":{\"action\":\"list\",\"date\":\"2026-05-12\"}}</tool_call>"}
+{"id": "teacher_012", "messages": [{"role": "user", "content": "add Team sync on 2026-05-12"}], "answer": "<tool_call>{\"tool\":\"calendar\",\"args\":{\"action\":\"create\",\"date\":\"2026-05-12\",\"title\":\"Team sync\"}}</tool_call>"}
+{"id": "teacher_013", "messages": [{"role": "user", "content": "calendar for 2026-08-01"}], "answer": "<tool_call>{\"tool\":\"calendar\",\"args\":{\"action\":\"list\",\"date\":\"2026-08-01\"}}</tool_call>"}
+{"id": "teacher_014", "messages": [{"role": "user", "content": "create event Dentist on 2026-08-01"}], "answer": "<tool_call>{\"tool\":\"calendar\",\"args\":{\"action\":\"create\",\"date\":\"2026-08-01\",\"title\":\"Dentist\"}}</tool_call>"}
+{"id": "teacher_015", "messages": [{"role": "user", "content": "show top 5 users by spend"}], "answer": "<tool_call>{\"tool\":\"sql\",\"args\":{\"query\":\"SELECT name, total_spend FROM users ORDER BY total_spend DESC LIMIT 5\"}}</tool_call>"}
+{"id": "teacher_016", "messages": [{"role": "user", "content": "count users by country"}], "answer": "<tool_call>{\"tool\":\"sql\",\"args\":{\"query\":\"SELECT country, COUNT(*) AS count FROM users GROUP BY country\"}}</tool_call>"}
+{"id": "teacher_017", "messages": [{"role": "user", "content": "show active subscriptions"}], "answer": "<tool_call>{\"tool\":\"sql\",\"args\":{\"query\":\"SELECT * FROM subscriptions WHERE status = 'active'\"}}</tool_call>"}
+{"id": "teacher_018", "messages": [{"role": "user", "content": "tell me a joke"}], "answer": "I can only help with weather, calendar, conversion, currency, or SQL tools."}
+{"id": "teacher_019", "messages": [{"role": "user", "content": "book a flight to Istanbul"}], "answer": "I cannot do that because no matching tool is available."}
+{"id": "teacher_020", "messages": [{"role": "user", "content": "convert that to euros"}], "answer": "I need prior context for 'that'. Please provide the amount and source currency."}
