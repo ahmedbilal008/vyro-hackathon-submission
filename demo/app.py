@@ -1,3 +1,5 @@
+import os
+
 import gradio as gr
 
 from inference import run
@@ -27,7 +29,12 @@ def main():
         title="Pocket-Agent",
         description="Offline tool-calling demo",
     )
-    demo.launch()
+    share = os.environ.get("GRADIO_SHARE", "0") == "1"
+    demo.launch(
+        share=share,
+        server_name="0.0.0.0",
+        server_port=int(os.environ.get("PORT", "7860")),
+    )
 
 
 if __name__ == "__main__":

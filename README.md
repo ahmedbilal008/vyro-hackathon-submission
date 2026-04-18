@@ -15,6 +15,7 @@ Notes:
 
 - The notebook already handles setup, data generation, training, quantization, public eval, and demo launch.
 - If quantization is slow, keep the cell running unless it shows no new logs for a long time.
+- The final notebook cell launches Gradio with public sharing enabled and prints a temporary demo URL (`*.gradio.live`) you can share with judges.
 
 ## Design Choices
 
