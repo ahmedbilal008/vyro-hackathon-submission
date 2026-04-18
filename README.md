@@ -10,7 +10,8 @@ Run in this exact order in Colab:
 ```python
 !git clone https://github.com/ahmedbilal008/vyro-hackathon-submission.git
 %cd vyro-hackathon-submission
-!pip -q install -r requirements.txt
+!pip -q install --upgrade pip setuptools wheel
+!pip -q install --prefer-binary -r requirements.txt
 
 !python starter/build_starter_files.py --manual data/manual_examples.jsonl --out starter
 
@@ -19,6 +20,14 @@ Run in this exact order in Colab:
 
 # Bonus-size attempt (<=250MB)
 !python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q3_k_s --max_mb 250
+```
+
+If install appears stuck on llama-cpp-python for more than 8-10 minutes, interrupt and run:
+
+```python
+!pip -q install --upgrade pip setuptools wheel
+!pip -q install --prefer-binary "llama-cpp-python==0.2.90"
+!pip -q install --prefer-binary -r requirements.txt
 ```
 
 If bonus-size quantization fails or quality drops:

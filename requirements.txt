@@ -5,5 +5,5 @@ accelerate>=0.29.0
 sentencepiece>=0.1.99
 safetensors>=0.4.2
 tqdm>=4.66.0
-llama-cpp-python>=0.2.90
+llama-cpp-python==0.2.90
 gradio>=4.0.0
