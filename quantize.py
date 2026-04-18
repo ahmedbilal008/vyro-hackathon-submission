@@ -1,4 +1,5 @@
 import argparse
+import gc
 import os
 import subprocess
 import sys
@@ -69,10 +70,12 @@ def ensure_llama_cpp(path):
 
 def merge_lora(base_id, adapter_dir, merged_dir):
     os.makedirs(merged_dir, exist_ok=True)
+    use_cuda = torch.cuda.is_available()
     model = AutoModelForCausalLM.from_pretrained(
         base_id,
-        torch_dtype=torch.float16,
-        device_map="auto",
+        torch_dtype=torch.float16 if use_cuda else torch.float32,
+        device_map={"": 0} if use_cuda else "cpu",
+        low_cpu_mem_usage=True,
         trust_remote_code=True,
     )
     model = PeftModel.from_pretrained(model, adapter_dir)
@@ -80,6 +83,11 @@ def merge_lora(base_id, adapter_dir, merged_dir):
     model.save_pretrained(merged_dir)
     tokenizer = AutoTokenizer.from_pretrained(base_id, trust_remote_code=True)
     tokenizer.save_pretrained(merged_dir)
+    del model
+    del tokenizer
+    gc.collect()
+    if use_cuda:
+        torch.cuda.empty_cache()
 
 
 def convert_and_quantize(merged_dir, out_path, llama_dir, quant_type, quantize_bin):
@@ -102,12 +110,17 @@ def main():
     parser.add_argument("--llama_dir", default="llama.cpp")
     parser.add_argument("--quant", default="q4_k_m")
     parser.add_argument("--max_mb", type=float, default=0.0)
+    parser.add_argument("--reuse_merged", action="store_true")
     args = parser.parse_args()
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
 
     quantize_bin = ensure_llama_cpp(args.llama_dir)
-    merge_lora(args.base, args.adapter, args.merged)
+    merged_ready = os.path.exists(os.path.join(args.merged, "config.json"))
+    if args.reuse_merged and merged_ready:
+        print(f"Using existing merged model at {args.merged}")
+    else:
+        merge_lora(args.base, args.adapter, args.merged)
     convert_and_quantize(args.merged, args.out, args.llama_dir, args.quant, quantize_bin)
     size_mb = file_size_mb(args.out)
     print(f"Wrote quantized model to {args.out} ({size_mb:.2f} MB)")
