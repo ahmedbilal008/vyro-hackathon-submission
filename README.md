@@ -1,134 +1,108 @@
 # Pocket-Agent Submission
 
-Offline tool-calling assistant built for the hackathon constraints.
+Fine-tuned offline tool-calling assistant for the hackathon grader.
 
 ## Setup Instructions
 
-1. Install dependencies
+Run from repository root:
 
-   python -m pip install -r requirements.txt
+```bash
+python -m pip install -r requirements.txt
+python data/generate_data.py --out data/train.jsonl --n 2000 --manual data/manual_examples.jsonl
+python train.py --model_id Qwen/Qwen2.5-0.5B-Instruct --data data/train.jsonl --out models/adapter
+python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q3_k_s --max_mb 250
+```
 
-2. Generate training data (curated + synthetic)
+If the q3 run does not pass size/quality needs, use fallback:
 
-   python data/generate_data.py --out data/train.jsonl --n 2000 --manual data/manual_examples.jsonl
+```bash
+python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q4_k_m
+```
 
-3. Optional hard-gate overlap check if public test is available
+Smoke test and demo:
 
-   python data/check_overlap.py --train data/train.jsonl --public starter/public_test.jsonl
-
-4. Train LoRA adapter
-
-   python train.py --model_id Qwen/Qwen2.5-0.5B-Instruct --data data/train.jsonl --out models/adapter
-
-5. Quantize
-
-   Bonus attempt (<=250 MB):
-   python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q3_k_s --max_mb 250
-
-   Gate-safe fallback (<=500 MB):
-   python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q4_k_m
-
-6. Run demo
-
-   MODEL_PATH=models/quantized/model.gguf python demo/app.py
-
-7. Grader contract check
-
-   from inference import run
-   print(run("weather in Lahore in C", []))
+```bash
+python -c "from inference import run; print(run('weather in Lahore in C', []))"
+MODEL_PATH=models/quantized/model.gguf python demo/app.py
+```
 
 ## Design Decisions
 
-- Tool output is always constrained to either exact <tool_call>{...}</tool_call> or plain refusal text.
-- Inference has lightweight refusal guards for ambiguous no-context prompts to avoid -0.5 penalties.
-- Model output is canonicalized and validated for schema, JSON shape, and key argument formats.
-- Training data mixes deterministic curated examples with synthetic variation to cover all grading slices.
+- Enforced exact output mode: valid <tool_call>{...}</tool_call> or plain refusal text.
+- Added inference-side schema validation/canonicalization to reduce malformed JSON and wrong-arg scoring drops.
+- Added refusal guard for ambiguous no-context prompts to avoid negative scoring.
+- Used Qwen2.5-0.5B-Instruct with q3 first (for <=250MB attempt) and q4 fallback (for <=500MB safety).
+- Mixed synthetic + curated manual edge cases to cover in-distribution, paraphrase, adversarial, and multi-turn/refusal slices.
 
-## Model Choices
+## Model Choice
 
-- Primary model: Qwen2.5-0.5B-Instruct
-- Reason 1: safely below <=2B hard gate
-- Reason 2: strong instruction-following and structured output behavior for its size
-- Reason 3: practical quantization path to <=500MB and realistic <=250MB attempts
-
-## Slice Coverage Strategy
-
-- Slice A (in-distribution): direct tool patterns in synthetic generator
-- Slice B (paraphrased): lexical paraphrases in synthetic templates and curated prompts
-- Slice C (adversarial): typos, code-switch (Hindi/Urdu/Spanish/Arabic mixed), ambiguity, hallucination-bait entities
-- Slice D (refusals + multi-turn): impossible tools, ambiguous references without history, and 2-3 turn carry-over examples
-
-## Hard Gates Checklist
-
-- Adapter loads on declared <=2B base model in transformers: yes (train.py + quantize.py path)
-- Quantized model <=500MB: q4_k_m path
-- Mean latency <=200ms target: low-token deterministic inference settings and small quantized model
-- Zero prompt overlap with public test: check_overlap.py script + --avoid generation option
-- No network imports in inference.py: yes
-- Demo launches and accepts input: demo/app.py Gradio ChatInterface
-
-## Bonus Point Plan
-
-- <=250MB bonus: first quantize with q3_k_s and --max_mb 250; fallback to q4_k_m if needed
-- README debugging insight bonus: see Error Analysis section below
-- Slice C performance bonus strategy: heavy curated adversarial set in data/manual_examples.jsonl plus canonical argument normalization
+- Base model: Qwen2.5-0.5B-Instruct
+- Why: <=2B gate safe, strong structured-output behavior for size, quantizes well for Colab CPU constraints.
 
 ## What Worked
 
-- Curated adversarial examples significantly improved refusal and multi-turn consistency.
-- Canonicalizing tool payloads reduced malformed JSON outputs at inference time.
-- Early refusal for ambiguous no-history references prevented accidental negative scoring.
-- q3_k_s often meets size target while still preserving usable tool-call behavior.
+- Curated adversarial examples improved code-switched and ambiguous prompt handling.
+- JSON canonicalization improved exact-format and argument consistency.
+- Refusal guard reduced false tool calls on no-context references.
 
 ## What Did Not Work
 
-- Pure synthetic random data without curated seeds underperformed on code-switched edge prompts.
-- Raw model output without post-validation produced occasional malformed tool payloads.
-- Aggressive size-only quantization can hurt argument fidelity on adversarial prompts.
+- Purely random synthetic data was weak on adversarial prompts.
+- No post-validation caused malformed outputs in some generations.
+- Over-aggressive quantization can reduce argument fidelity.
 
-## Error Analysis (Specific Debugging Insight)
+## Colab Flow (Exact Steps)
 
-Issue observed:
-The model occasionally emitted a tool call for prompts like "convert that to euros" when there was no prior context.
+1. Open Colab T4 runtime.
+2. Run these commands in order:
 
-Why this was costly:
-Those cases should be refusal decisions; a wrong tool call can incur negative scoring.
+```python
+!git clone https://github.com/ahmedbilal008/vyro-hackathon-submission.git
+%cd vyro-hackathon-submission
+!pip -q install -r requirements.txt
+!python data/generate_data.py --out data/train.jsonl --n 2000 --manual data/manual_examples.jsonl
+!python train.py --model_id Qwen/Qwen2.5-0.5B-Instruct --data data/train.jsonl --out models/adapter
+!python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q3_k_s --max_mb 250
+```
 
-Debugging insight and fix:
-- Added explicit ambiguous-reference detection in inference.py for tokens like that/it/same/there when no prior tool context exists.
-- Added strict tool-call JSON extraction and schema canonicalization so malformed outputs are rejected into refusal text.
+3. If the last command fails or accuracy is not stable, run fallback:
 
-Resulting behavior change:
-- Ambiguous no-history prompts now deterministically return refusal text.
-- Tool outputs are normalized, reducing malformed JSON risk and preserving argument fidelity.
+```python
+!python quantize.py --base Qwen/Qwen2.5-0.5B-Instruct --adapter models/adapter --out models/quantized/model.gguf --quant q4_k_m
+```
 
-## GitHub and Colab Workflow for Submission
+4. Check and run demo:
 
-Submission is by GitHub repository link, not by uploading zip.
+```python
+from inference import run
+print(run("weather in Lahore in C", []))
+import os
+os.environ["MODEL_PATH"] = "models/quantized/model.gguf"
+!python demo/app.py
+```
 
-Recommended flow:
-1. Push code to GitHub.
-2. In Colab, clone repo, train, quantize, smoke test.
-3. Commit adapter artifacts from Colab only if needed.
-4. Push final commit; submit repository URL on platform.
+## Colab Commit Steps (What You Should Push)
 
-Push from local:
+Push code + trained adapter. Quantized file can stay uncommitted since grader quantizes from adapter.
 
-   git init
-   git add .
-   git commit -m "hackathon submission"
-   git branch -M main
-   git remote add origin https://github.com/ahmedbilal008/vyro-hackathon-submission.git
-   git push -u origin main
+```python
+!git config user.name "Ahmed Bilal"
+!git config user.email "your-email@example.com"
+!git add models/adapter
+!git commit -m "add trained adapter"
+```
 
-Push from Colab after training (optional):
+Then push with a token:
 
-   !git config user.email "you@example.com"
-   !git config user.name "Your Name"
-   !git add models/adapter
-   !git commit -m "add trained adapter"
-   !git push
+```python
+import getpass
+token = getpass.getpass("GitHub token: ")
+!git remote set-url origin https://{token}@github.com/ahmedbilal008/vyro-hackathon-submission.git
+!git push origin main
+```
 
-Note:
-- Quantized files are usually not required in GitHub if quantize.py reproduces them.
-- Keep quantized model local in Colab for evaluation/demo, and commit only if size and policy allow.
+## Submission
+
+Submit this GitHub repository link on the hackathon platform:
+
+https://github.com/ahmedbilal008/vyro-hackathon-submission
